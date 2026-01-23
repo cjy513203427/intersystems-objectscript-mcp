@@ -1,4 +1,4 @@
-第一步：项目初始化与依赖安装 (Setup & Dependencies)
+## 第一步：项目初始化与依赖安装 (Setup & Dependencies)
 让 Cursor 帮你搭建基于 TypeScript 的 Node.js 环境，并安装必要的 MCP 核心库。
 
 Prompt 1: 我要用 Node.js (TypeScript) 开发一个 InterSystems IRIS 的 MCP Server。
@@ -28,7 +28,7 @@ PS C:\Projekte\Personal\intersystems-objectscript-mcp> nvm ls
 
 此时不要写业务代码，先帮我把环境和配置文件搞定。
 
-第二步：Server 骨架与连接测试 (Server Skeleton)
+## 第二步：Server 骨架与连接测试 (Server Skeleton)
 这一步建立 MCP 服务器实例，并打通与 IRIS 的第一条 HTTP 链路。
 
 Prompt 2: 环境已准备好。现在开始编写 src/index.ts。
@@ -49,7 +49,7 @@ Prompt 2: 环境已准备好。现在开始编写 src/index.ts。
 
 代码必须包含完善的错误捕获 (try-catch)。
 
-第三步：核心工具 - 智能获取 .int 代码 (The .int Fetcher)
+## 第三步：核心工具 - 智能获取 .int 代码 (The .int Fetcher)
 这是最核心的逻辑。在 Node.js 中，我们可以利用 Zod 来清晰地定义参数。
 
 Prompt 3: 连接测试通过。现在我们要实现核心工具：获取 Routine (.int) 代码，以便 AI 理解宏展开后的逻辑。
@@ -89,7 +89,7 @@ Prompt 4: 顺便再增加一个工具 get_class_source 用于获取原始类定�
 
 请确保将此工具注册到同一个 Server 实例中。
 
-第四步：环境感知与 SQL 执行 (Namespace & SQL)
+## 第四步：环境感知与 SQL 执行 (Namespace & SQL)
 让 AI 知道自己在哪里，并能查询数据。
 
 Prompt 5: 最后，添加两个辅助工具来增强 AI 的环境感知能力：
@@ -110,7 +110,7 @@ execute_iris_sql 工具：
 
 关键点： IRIS 返回的 JSON 格式是 { result: { content: [...] } }。请将结果格式化为 Markdown 表格字符串，以便 AI 阅读。
 
-第五步：运行配置 (Run Configuration)
+## 第五步：运行配置 (Run Configuration)
 最后，让 Cursor 告诉你如何在它自己的配置里填入这段代码。
 
 Prompt 6: 开发完成。请告诉我：
