@@ -95,6 +95,6 @@ execute_iris_sql 工具：
 
 参数：query (SQL 语句), namespace (可选)。
 
-调用端点：POST /api/atelier/v1/{namespace}/query。
+调用端点：POST /api/atelier/v1/{namespace}/action/query。
 
 关键点： IRIS 返回的 JSON 格式是 { result: { content: [...] } }。请将结果格式化为 Markdown 表格字符串，以便 AI 阅读。
