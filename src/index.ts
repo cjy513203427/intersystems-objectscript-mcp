@@ -71,6 +71,150 @@ function extractVersionInfo(data: unknown): string {
   return String(data);
 }
 
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function escapeMarkdownCell(value: string): string {
+  // Keep the table stable: escape pipes and normalize newlines.
+  return value.replaceAll("|", "\\|").replaceAll("\r\n", "\n").replaceAll("\n", "<br>");
+}
+
+function toCellString(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean" || typeof value === "bigint") return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function formatMarkdownTable(content: unknown): string {
+  if (!Array.isArray(content)) {
+    return `无法识别的 SQL 返回格式：\n${extractVersionInfo(content)}`;
+  }
+
+  if (content.length === 0) {
+    return "_(empty result)_";
+  }
+
+  // Case 1: array of plain objects => union keys as columns.
+  if (content.every((row) => isPlainObject(row))) {
+    const rows = content as Array<Record<string, unknown>>;
+    const columns: string[] = [];
+    for (const r of rows) {
+      for (const k of Object.keys(r)) {
+        if (!columns.includes(k)) columns.push(k);
+      }
+    }
+    if (columns.length === 0) columns.push("value");
+
+    const header = `| ${columns.map(escapeMarkdownCell).join(" | ")} |`;
+    const sep = `| ${columns.map(() => "---").join(" | ")} |`;
+    const body = rows
+      .map((r) => `| ${columns.map((c) => escapeMarkdownCell(toCellString(r[c]))).join(" | ")} |`)
+      .join("\n");
+
+    return [header, sep, body].filter(Boolean).join("\n");
+  }
+
+  // Case 2: array of arrays => treat as rows; first row may be header.
+  if (content.every((row) => Array.isArray(row))) {
+    const rows = content as unknown[][];
+    const maxLen = rows.reduce((m, r) => Math.max(m, r.length), 0);
+    const row0 = rows[0] ?? [];
+    const row1 = rows[1] ?? null;
+    const hasHeader =
+      row1 != null &&
+      row0.length > 0 &&
+      row0.length === (row1 as unknown[]).length &&
+      row0.every((v) => typeof v === "string");
+
+    const headerCells = hasHeader
+      ? (row0.map((v) => escapeMarkdownCell(String(v))) as string[])
+      : Array.from({ length: Math.max(maxLen, 1) }, (_, i) => `col${i + 1}`);
+
+    const dataRows = hasHeader ? rows.slice(1) : rows;
+    const normalized = dataRows.map((r) => {
+      const cells = [...r];
+      while (cells.length < headerCells.length) cells.push("");
+      return cells.slice(0, headerCells.length);
+    });
+
+    const header = `| ${headerCells.join(" | ")} |`;
+    const sep = `| ${headerCells.map(() => "---").join(" | ")} |`;
+    const body = normalized
+      .map((r) => `| ${r.map((v) => escapeMarkdownCell(toCellString(v))).join(" | ")} |`)
+      .join("\n");
+
+    return [header, sep, body].filter(Boolean).join("\n");
+  }
+
+  // Case 3: array of strings (or mixed scalars) => single-column table.
+  const header = "| value |";
+  const sep = "| --- |";
+  const body = content.map((v) => `| ${escapeMarkdownCell(toCellString(v))} |`).join("\n");
+  return [header, sep, body].join("\n");
+}
+
+function extractQueryContent(data: unknown): unknown {
+  if (!isPlainObject(data)) return data;
+  const result = isPlainObject(data.result) ? data.result : null;
+  if (result && "content" in result) return (result as Record<string, unknown>).content;
+  if ("content" in data) return data.content;
+  return data;
+}
+
+async function executeSQL(env: Env, namespace: string, query: string): Promise<string> {
+  const client = createIrisClient(env);
+  const ns = namespace;
+
+  // Note: Some IRIS/Atelier versions expose SQL query via /action/query (not /query).
+  const endpointCandidates = [
+    `/api/atelier/v1/${encodeURIComponent(ns)}/query`,
+    `/api/atelier/v1/${encodeURIComponent(ns)}/action/query`,
+  ];
+
+  const candidates: Array<{ label: string; body: unknown }> = [
+    { label: 'body={"query": "..."}', body: { query } },
+    { label: 'body={"sql": "..."}', body: { sql: query } },
+    { label: 'body={"query": {"sql":"..."}}', body: { query: { sql: query } } },
+  ];
+
+  let lastAxiosErr: unknown = null;
+  for (const endpoint of endpointCandidates) {
+    for (const c of candidates) {
+      try {
+        const res = await client.post(endpoint, c.body);
+        const content = extractQueryContent(res.data);
+        return formatMarkdownTable(content);
+      } catch (err: unknown) {
+        lastAxiosErr = err;
+        if (axios.isAxiosError(err)) {
+          const status = err.response?.status;
+          // If endpoint is not found, try the next endpoint path.
+          if (status === 404) break;
+          // If server rejects the body shape/content-type, try the next candidate.
+          if (status === 400 || status === 415 || status === 422) {
+            continue;
+          }
+        }
+        throw err;
+      }
+    }
+  }
+
+  if (axios.isAxiosError(lastAxiosErr)) {
+    const status = lastAxiosErr.response?.status ?? "unknown";
+    const snippet = extractVersionInfo(lastAxiosErr.response?.data ?? lastAxiosErr.message);
+    return `SQL 执行失败（已尝试多种端点与请求体格式）。HTTP ${status}\n${snippet}`;
+  }
+
+  return `SQL 执行失败：${String(lastAxiosErr ?? "unknown error")}`;
+}
+
 async function verifyConnection(env: Env): Promise<void> {
   const client = createIrisClient(env);
 
@@ -171,6 +315,33 @@ async function main(): Promise<void> {
           : String(err);
         return {
           content: [{ type: "text", text: `获取失败：${details}` }],
+        };
+      }
+    },
+  );
+
+  server.registerTool(
+    "execute_iris_sql",
+    {
+      description: "Read-only: execute SQL via Atelier query endpoint and return results as a Markdown table.",
+      inputSchema: z.object({
+        query: z.string().min(1),
+        namespace: z.string().min(1).optional(),
+      }),
+    },
+    async ({ query, namespace }) => {
+      const resolvedNamespace = namespace ?? env.IRIS_NAMESPACE;
+      try {
+        const md = await executeSQL(env, resolvedNamespace, query);
+        return {
+          content: [{ type: "text", text: md }],
+        };
+      } catch (err: unknown) {
+        const details = axios.isAxiosError(err)
+          ? extractVersionInfo(err.response?.data ?? err.message)
+          : String(err);
+        return {
+          content: [{ type: "text", text: `执行失败：${details}` }],
         };
       }
     },

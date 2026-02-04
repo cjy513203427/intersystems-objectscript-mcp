@@ -98,14 +98,3 @@ execute_iris_sql 工具：
 调用端点：POST /api/atelier/v1/{namespace}/query。
 
 关键点： IRIS 返回的 JSON 格式是 { result: { content: [...] } }。请将结果格式化为 Markdown 表格字符串，以便 AI 阅读。
-
-## 第五步：运行配置 (Run Configuration)
-最后，让 Cursor 告诉你如何在它自己的配置里填入这段代码。
-
-Prompt 6: 开发完成。请告诉我：
-
-如何在本地终端使用 npx tsx 运行并测试它 (Inspector 模式)。
-
-如何在 Claude Desktop 或 Cursor 的配置文件中配置这个 MCP Server。请给出具体的 JSON 配置段落。
-
-注意：Command 应该是 node 或 npx，Args 需要包含完整的路径。
