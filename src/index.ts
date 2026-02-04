@@ -9,7 +9,7 @@ const EnvSchema = z.object({
   IRIS_URL: z
     .string()
     .min(1, "IRIS_URL is required")
-    .default("http://localhost:52794"),
+    .default("http://localhost:63668"),
   IRIS_NAMESPACE: z.string().min(1).default("KELVIN"),
   IRIS_USERNAME: z.string().min(1, "IRIS_USERNAME is required").default("_SYSTEM"),
   IRIS_PASSWORD: z.string().min(1, "IRIS_PASSWORD is required").default("SYS"),
@@ -145,9 +145,13 @@ async function main(): Promise<void> {
             routineName,
           )}`,
         );
-        const content = Array.isArray(res.data?.content)
-          ? res.data.content.join("\n")
-          : extractVersionInfo(res.data);
+        // Atelier doc responses are typically { result: { name, cat, content: string[] } }.
+        const result = res.data?.result ?? res.data;
+        const lines = Array.isArray(result?.content) ? result.content : null;
+        const header = `[IRIS routine] name=${String(result?.name ?? routineName)} cat=${String(
+          result?.cat ?? "unknown",
+        )}`;
+        const content = lines ? `${header}\n${lines.join("\n")}` : `${header}\n${extractVersionInfo(res.data)}`;
         return {
           content: [{ type: "text", text: content }],
         };
@@ -155,7 +159,10 @@ async function main(): Promise<void> {
         if (axios.isAxiosError(err) && err.response?.status === 404) {
           return {
             content: [
-              { type: "text", text: "未找到编译后的代码，请先检查类是否已编译" },
+              {
+                type: "text",
+                text: "未找到对应的 routine 文档（例如 .1.int）。请确认类已编译且该 namespace 下存在生成的 .1.int。",
+              },
             ],
           };
         }

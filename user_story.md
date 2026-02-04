@@ -66,7 +66,7 @@ namespace: string (可选，如果不填则使用环境变量中的默认值)。
 
 判断 name 后缀。如果是 .cls，自动替换为 .1.int (例如 Package.Class.cls -> Package.Class.1.int)。
 
-使用 Axios 调用：GET /api/atelier/v1/{namespace}/routines/{routineName}。
+使用 Axios 调用：GET /api/atelier/v1/{namespace}/doc/{routineName}。
 
 返回结果：
 
@@ -74,20 +74,9 @@ Atelier API 通常返回 JSON { content: [...] }。请将数组 join 起来返�
 
 如果返回 404，返回友好的提示“未找到编译后的代码，请先检查类是否已编译”。
 
-第三步补丁：获取原始代码 (Original Source)
-有时你也需要看原始代码。
-
-Prompt 4: 顺便再增加一个工具 get_class_source 用于获取原始类定义 (.cls)。
-
-逻辑：
-
-使用 GET /api/atelier/v1/{namespace}/doc/{className}。
-
-同样使用 Zod 定义参数 (className, namespace)。
-
-注意：Atelier 获取 Doc 的接口返回结构可能包含 content 数组，处理方式与 Routine 类似。
-
-请确保将此工具注册到同一个 Server 实例中。
+说明：
+本项目的核心诉求是让 LLM 拿到“宏展开后的编译中间代码”，因此只需要提供 `.1.int`。
+原始 `.cls` 源码在各类 vibe coding 工具/IDE 中可以直接通过打开文件（或 @ 引用）查看，无需再通过 MCP 重复获取。
 
 ## 第四步：环境感知与 SQL 执行 (Namespace & SQL)
 让 AI 知道自己在哪里，并能查询数据。
