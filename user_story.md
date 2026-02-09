@@ -1,7 +1,7 @@
 ## 第一步：项目初始化与依赖安装 (Setup & Dependencies)
 让 Cursor 帮你搭建基于 TypeScript 的 Node.js 环境，并安装必要的 MCP 核心库。
 
-Prompt 1: 我要用 Node.js (TypeScript) 开发一个 InterSystems IRIS 的 MCP Server。
+Prompt 1: 我要用 Node.js (TypeScript) 开发一个 IRIS Routine 读取用途的 MCP Server。
 
 项目基础要求：
 
@@ -17,7 +17,7 @@ HTTP库： 使用 axios 处理与 IRIS 的 REST API 通信。
 
 生成 package.json 内容，包含上述依赖以及 tsx (用于直接运行 TS 文件) 和 @types/node。
 
-PS C:\Projekte\Personal\intersystems-objectscript-mcp> nvm ls
+PS C:\path\to\intersystems-objectscript-routine-mcp> nvm ls
 
     24.7.0
 使用这个node版本
@@ -79,21 +79,9 @@ Atelier API 通常返回 JSON { content: [...] }。请将数组 join 起来返�
 本项目的核心诉求是让 LLM 拿到“宏展开后的编译中间代码”，因此只需要提供 `.1.int`。
 原始 `.cls` 源码在各类 vibe coding 工具/IDE 中可以直接通过打开文件（或 @ 引用）查看，无需再通过 MCP 重复获取。
 
-## 第四步：环境感知与 SQL 执行 (Namespace & SQL)
-让 AI 知道自己在哪里，并能查询数据。
-
-Prompt 5: 最后，添加两个辅助工具来增强 AI 的环境感知能力：
-
-execute_iris_sql 工具：
-
-对外暴露 SQL 执行能力。
-
-参数：query (SQL 语句), namespace (可选)。
-
-调用端点：POST /api/atelier/v1/{namespace}/action/query。
-
-关键点： IRIS 返回的 JSON 格式是 { result: { content: [...] } }。请将结果格式化为 Markdown 表格字符串，以便 AI 阅读。
+## 第四步：Namespace 配置策略 (Namespace Strategy)
+由于不同 IRIS 安装的系统表/权限差异会导致“枚举/探测 namespace”不稳定，本项目不提供 SQL 查询端点。
 
 说明：
-- 本项目不再尝试自动探测/枚举 namespace（不同 IRIS 安装的系统表/权限差异会导致不稳定）。
-- 请用户在配置中显式设置 `IRIS_NAMESPACE`（作为默认 namespace）；工具参数中的 `namespace` 仅用于临时覆盖。
+- 请用户在宿主 `mcp.json` 的 `env` 中显式设置 `IRIS_NAMESPACE`（默认 namespace）。
+- 工具参数中的 `namespace` 仅用于临时覆盖默认值。

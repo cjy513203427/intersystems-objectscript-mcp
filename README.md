@@ -1,4 +1,4 @@
-# intersystems-objectscript-mcp
+# intersystems-objectscript-routine-mcp
 
 Minimal MCP server for InterSystems IRIS (Atelier API). This project is intended to be configured by the **host** (Cursor/Claude Desktop/etc) via `mcp.json`.
 
@@ -9,9 +9,9 @@ Set connection parameters in the host config using `env`. Example (adjust paths/
 ```json
 {
   "mcpServers": {
-    "intersystems-objectscript-mcp": {
+    "intersystems-objectscript-routine-mcp": {
       "command": "node",
-      "args": ["C:/Projekte/Personal/intersystems-objectscript-mcp/node_modules/tsx/dist/cli.mjs", "C:/Projekte/Personal/intersystems-objectscript-mcp/src/index.ts"],
+      "args": ["<path-to-repo>/node_modules/tsx/dist/cli.mjs", "<path-to-repo>/src/index.ts"],
       "env": {
         "IRIS_URL": "http://localhost:63668",
         "IRIS_NAMESPACE": "KELVIN",

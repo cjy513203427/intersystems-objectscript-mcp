@@ -1,9 +1,9 @@
 {
-  "name": "intersystems-objectscript-mcp",
+  "name": "intersystems-objectscript-routine-mcp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "MCP server for InterSystems IRIS (ObjectScript/Atelier API) - minimal demo skeleton.",
+  "description": "MCP server for InterSystems IRIS (Atelier API) focused on reading compiled routines (.int) for LLMs.",
   "engines": {
     "node": ">=24.7.0"
   },
