@@ -9,8 +9,6 @@
   },
   "scripts": {
     "dev": "tsx src/index.ts",
-    "verify": "tsx src/index.ts --verify-only",
-    "ping-demo": "tsx src/ping-demo.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

@@ -10,7 +10,7 @@ const EnvSchema = z.object({
     .string()
     .min(1, "IRIS_URL is required")
     .default("http://localhost:63668"),
-  IRIS_NAMESPACE: z.string().min(1).default("KELVIN"),
+  IRIS_NAMESPACE: z.string().min(1, "IRIS_NAMESPACE is required"),
   IRIS_USERNAME: z.string().min(1, "IRIS_USERNAME is required").default("_SYSTEM"),
   IRIS_PASSWORD: z.string().min(1, "IRIS_PASSWORD is required").default("SYS"),
 });
@@ -21,7 +21,7 @@ function parseEnv(): Env {
   const parsed = EnvSchema.safeParse(process.env);
   if (!parsed.success) {
     // Logs must go to stderr in stdio mode to avoid corrupting the protocol stream.
-    console.error("环境变量校验失败：");
+    console.error("Environment variable validation failed:");
     console.error(parsed.error.flatten().fieldErrors);
     process.exit(1);
   }
@@ -93,7 +93,7 @@ function toCellString(value: unknown): string {
 
 function formatMarkdownTable(content: unknown): string {
   if (!Array.isArray(content)) {
-    return `无法识别的 SQL 返回格式：\n${extractVersionInfo(content)}`;
+    return `Unrecognized SQL response format:\n${extractVersionInfo(content)}`;
   }
 
   if (content.length === 0) {
@@ -167,52 +167,86 @@ function extractQueryContent(data: unknown): unknown {
   return data;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function buildRoutineDocCandidates(inputName: string): string[] {
+  // Candidates are tried in order; keep it conservative and predictable.
+  const name = inputName.trim();
+  const out: string[] = [];
+  const seen = new Set<string>();
+
+  const add = (v: string) => {
+    const vv = v.trim();
+    if (!vv) return;
+    if (seen.has(vv)) return;
+    seen.add(vv);
+    out.push(vv);
+  };
+
+  // If user provides a class name (with or without .cls), prefer the compiled routine (.1.int).
+  if (/\.cls$/i.test(name)) {
+    add(name.replace(/\.cls$/i, ".1.int"));
+    add(name.replace(/\.cls$/i, ".int"));
+    return out;
+  }
+
+  // If user provides a routine name already.
+  if (/\.int$/i.test(name) || /\.mac$/i.test(name) || /\.inc$/i.test(name)) {
+    add(name);
+    return out;
+  }
+
+  // Bare class name: try common compiled routine name shapes first.
+  add(`${name}.1.int`);
+  add(`${name}.int`);
+  // As a last resort, try the input verbatim (might already be a doc name on some systems).
+  add(name);
+  return out;
+}
+
+function isLikelyNetworkMisconfig(err: unknown): boolean {
+  if (!axios.isAxiosError(err)) return false;
+  if (err.response) return false;
+  const code = err.code ?? "";
+  return [
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "ESOCKETTIMEDOUT",
+    "ENOTFOUND",
+    "EAI_AGAIN",
+    "ECONNRESET",
+    "EHOSTUNREACH",
+    "ENETUNREACH",
+  ].includes(code);
+}
+
+function shouldRetryOnce(err: unknown): boolean {
+  if (!axios.isAxiosError(err)) return false;
+  const status = err.response?.status;
+  // Only retry a small set of transient server errors.
+  return status === 502 || status === 503 || status === 504;
+}
+
 async function executeSQL(env: Env, namespace: string, query: string): Promise<string> {
   const client = createIrisClient(env);
   const ns = namespace;
 
-  // Note: Some IRIS/Atelier versions expose SQL query via /action/query (not /query).
-  const endpointCandidates = [
-    `/api/atelier/v1/${encodeURIComponent(ns)}/query`,
-    `/api/atelier/v1/${encodeURIComponent(ns)}/action/query`,
-  ];
-
-  const candidates: Array<{ label: string; body: unknown }> = [
-    { label: 'body={"query": "..."}', body: { query } },
-    { label: 'body={"sql": "..."}', body: { sql: query } },
-    { label: 'body={"query": {"sql":"..."}}', body: { query: { sql: query } } },
-  ];
-
-  let lastAxiosErr: unknown = null;
-  for (const endpoint of endpointCandidates) {
-    for (const c of candidates) {
-      try {
-        const res = await client.post(endpoint, c.body);
-        const content = extractQueryContent(res.data);
-        return formatMarkdownTable(content);
-      } catch (err: unknown) {
-        lastAxiosErr = err;
-        if (axios.isAxiosError(err)) {
-          const status = err.response?.status;
-          // If endpoint is not found, try the next endpoint path.
-          if (status === 404) break;
-          // If server rejects the body shape/content-type, try the next candidate.
-          if (status === 400 || status === 415 || status === 422) {
-            continue;
-          }
-        }
-        throw err;
-      }
+  try {
+    const res = await client.post(`/api/atelier/v1/${encodeURIComponent(ns)}/action/query`, {
+      query,
+    });
+    const content = extractQueryContent(res.data);
+    return formatMarkdownTable(content);
+  } catch (err: unknown) {
+    if (axios.isAxiosError(err)) {
+      const status = err.response?.status ?? "unknown";
+      const snippet = extractVersionInfo(err.response?.data ?? err.message);
+      return `SQL execution failed. HTTP ${status}\n${snippet}`;
     }
+    return `SQL execution failed: ${String(err)}`;
   }
-
-  if (axios.isAxiosError(lastAxiosErr)) {
-    const status = lastAxiosErr.response?.status ?? "unknown";
-    const snippet = extractVersionInfo(lastAxiosErr.response?.data ?? lastAxiosErr.message);
-    return `SQL 执行失败（已尝试多种端点与请求体格式）。HTTP ${status}\n${snippet}`;
-  }
-
-  return `SQL 执行失败：${String(lastAxiosErr ?? "unknown error")}`;
 }
 
 async function verifyConnection(env: Env): Promise<void> {
@@ -221,11 +255,11 @@ async function verifyConnection(env: Env): Promise<void> {
   try {
     // user_story.md step2 expects /api/atelier/ as the first HTTP link.
     const res = await client.get("/api/atelier/");
-    console.error("IRIS 连接成功。");
+    console.error("IRIS connection successful.");
     console.error(`HTTP ${res.status}`);
     console.error(`Atelier info: ${extractVersionInfo(res.data)}`);
   } catch (err: unknown) {
-    console.error("IRIS 连接失败。");
+    console.error("IRIS connection failed.");
     if (axios.isAxiosError(err)) {
       if (err.response) {
         console.error(`HTTP ${err.response.status}`);
@@ -245,10 +279,7 @@ async function verifyConnection(env: Env): Promise<void> {
 
 async function main(): Promise<void> {
   const env = parseEnv();
-  const verifyOnly = process.argv.includes("--verify-only");
-
   await verifyConnection(env);
-  if (verifyOnly) return;
 
   const server = new McpServer({
     name: "intersystems-objectscript-mcp",
@@ -256,23 +287,10 @@ async function main(): Promise<void> {
   });
 
   server.registerTool(
-    "ping",
-    {
-      description: "Health check for MCP connectivity.",
-      inputSchema: z.object({}),
-    },
-    async () => {
-      return {
-        content: [{ type: "text", text: "pong" }],
-      };
-    },
-  );
-
-  server.registerTool(
     "get_iris_routine",
     {
       description:
-        "Read-only: fetch compiled routine (.int) content from IRIS. Does not modify any code.",
+        "Read-only: fetch compiled routine (.int) content from IRIS. Auto-completes bare class names (e.g. 'Pkg.Class') by trying '.1.int' and '.int'. Does not modify any code.",
       inputSchema: z.object({
         name: z.string().min(1),
         namespace: z.string().min(1).optional(),
@@ -280,43 +298,88 @@ async function main(): Promise<void> {
     },
     async ({ name, namespace }) => {
       const resolvedNamespace = namespace ?? env.IRIS_NAMESPACE;
-      const routineName = name.endsWith(".cls") ? name.replace(/\.cls$/, ".1.int") : name;
       const client = createIrisClient(env);
 
-      try {
-        const res = await client.get(
-          `/api/atelier/v1/${encodeURIComponent(resolvedNamespace)}/doc/${encodeURIComponent(
-            routineName,
-          )}`,
-        );
-        // Atelier doc responses are typically { result: { name, cat, content: string[] } }.
-        const result = res.data?.result ?? res.data;
-        const lines = Array.isArray(result?.content) ? result.content : null;
-        const header = `[IRIS routine] name=${String(result?.name ?? routineName)} cat=${String(
-          result?.cat ?? "unknown",
-        )}`;
-        const content = lines ? `${header}\n${lines.join("\n")}` : `${header}\n${extractVersionInfo(res.data)}`;
-        return {
-          content: [{ type: "text", text: content }],
-        };
-      } catch (err: unknown) {
-        if (axios.isAxiosError(err) && err.response?.status === 404) {
-          return {
-            content: [
-              {
-                type: "text",
-                text: "未找到对应的 routine 文档（例如 .1.int）。请确认类已编译且该 namespace 下存在生成的 .1.int。",
-              },
-            ],
-          };
+      const candidates = buildRoutineDocCandidates(name);
+      const tried: Array<{ name: string; status?: number; message?: string }> = [];
+
+      for (const candidate of candidates) {
+        const url = `/api/atelier/v1/${encodeURIComponent(resolvedNamespace)}/doc/${encodeURIComponent(candidate)}`;
+
+        // Important: keep this tool responsive. Avoid long hangs on misconfigured ports.
+        // We do a single attempt per candidate, and at most one extra retry for transient 5xx.
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            const res = await client.get(url, { timeout: 10_000 });
+            // Atelier doc responses are typically { result: { name, cat, content: string[] } }.
+            const result = res.data?.result ?? res.data;
+            const lines = Array.isArray(result?.content) ? result.content : null;
+            const header = `[IRIS routine] name=${String(result?.name ?? candidate)} cat=${String(
+              result?.cat ?? "unknown",
+            )}`;
+            const content = lines
+              ? `${header}\n${lines.join("\n")}`
+              : `${header}\n${extractVersionInfo(res.data)}`;
+            return {
+              content: [{ type: "text", text: content }],
+            };
+          } catch (err: unknown) {
+            if (isLikelyNetworkMisconfig(err)) {
+              // Fast-fail for common port/DNS/timeout issues; don't keep the user waiting.
+              const ax = axios.isAxiosError(err) ? err : null;
+              const code = ax?.code ? ` (${ax.code})` : "";
+              const hint =
+                `无法连接到 IRIS${code}。请检查 IRIS_URL/端口、网络连通性与 Basic Auth。` +
+                `\n- IRIS_URL: ${env.IRIS_URL}` +
+                `\n- 尝试访问: ${normalizeBaseUrl(env.IRIS_URL)}/api/atelier/`;
+              return { content: [{ type: "text", text: hint }] };
+            }
+
+            if (axios.isAxiosError(err)) {
+              const status = err.response?.status;
+              tried.push({ name: candidate, status, message: err.message });
+
+              // Not a valid doc name or not found => try next candidate.
+              if (status === 400 || status === 404) break;
+
+              // Auth / permission issues should surface immediately.
+              if (status === 401 || status === 403) {
+                const snippet = extractVersionInfo(err.response?.data ?? err.message);
+                return {
+                  content: [{ type: "text", text: `认证/权限失败（HTTP ${status}）。\n${snippet}` }],
+                };
+              }
+
+              // Retry once for transient 5xx, then fall through to return a generic error.
+              if (attempt === 0 && shouldRetryOnce(err)) {
+                await sleep(250);
+                continue;
+              }
+
+              const snippet = extractVersionInfo(err.response?.data ?? err.message);
+              return {
+                content: [{ type: "text", text: `获取 routine 失败（HTTP ${status ?? "unknown"}）。\n${snippet}` }],
+              };
+            }
+
+            // Non-Axios errors: return a generic failure without retry loops.
+            return { content: [{ type: "text", text: `获取 routine 失败：${String(err)}` }] };
+          }
         }
-        const details = axios.isAxiosError(err)
-          ? err.message
-          : String(err);
-        return {
-          content: [{ type: "text", text: `获取失败：${details}` }],
-        };
       }
+
+      // If we reach here, all candidates were 400/404.
+      const list = candidates.map((c) => `- ${c}`).join("\n");
+      return {
+        content: [
+          {
+            type: "text",
+            text:
+              `未找到对应的 routine 文档。\n已尝试以下名称：\n${list}\n\n` +
+              `请确认：\n- 类已编译（会生成 *.1.int）\n- namespace 正确：${resolvedNamespace}`,
+          },
+        ],
+      };
     },
   );
 
@@ -341,7 +404,7 @@ async function main(): Promise<void> {
           ? extractVersionInfo(err.response?.data ?? err.message)
           : String(err);
         return {
-          content: [{ type: "text", text: `执行失败：${details}` }],
+          content: [{ type: "text", text: `Execution failed: ${details}` }],
         };
       }
     },
@@ -355,7 +418,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error("启动失败：");
+  console.error("Startup failed:");
   console.error(err);
   process.exit(1);
 });

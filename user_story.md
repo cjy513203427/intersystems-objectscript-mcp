@@ -11,7 +11,7 @@ Prompt 1: 我要用 Node.js (TypeScript) 开发一个 InterSystems IRIS 的 MCP 
 
 HTTP库： 使用 axios 处理与 IRIS 的 REST API 通信。
 
-配置： 使用 dotenv 读取 .env 文件。
+配置：主要通过宿主的 `mcp.json` 传入环境变量（推荐）；dotenv + `.env` 仅用于本地开发调试。
 
 请执行以下操作：
 
@@ -24,7 +24,8 @@ PS C:\Projekte\Personal\intersystems-objectscript-mcp> nvm ls
 
 创建项目目录结构，入口文件设为 src/index.ts。
 
-创建一个 .env 模板，包含 IRIS_URL (如 http://localhost:52773), IRIS_NAMESPACE (默认为 USER), IRIS_USERNAME, IRIS_PASSWORD。
+创建一个 `.env.example`（本地开发可选），包含 IRIS_URL, IRIS_NAMESPACE, IRIS_USERNAME, IRIS_PASSWORD。
+说明：实际使用时建议在宿主的 `mcp.json` 中通过 `env` 显式配置这些变量。
 
 此时不要写业务代码，先帮我把环境和配置文件搞定。
 
@@ -83,12 +84,6 @@ Atelier API 通常返回 JSON { content: [...] }。请将数组 join 起来返�
 
 Prompt 5: 最后，添加两个辅助工具来增强 AI 的环境感知能力：
 
-list_namespaces 工具：
-
-由于 Atelier API 没有直接列出 Namespace 的简单端点，请通过执行 SQL 来获取：SELECT Name FROM %SYS.Namespace。
-
-你需要封装一个通用的 executeSQL 内部函数。
-
 execute_iris_sql 工具：
 
 对外暴露 SQL 执行能力。
@@ -98,3 +93,7 @@ execute_iris_sql 工具：
 调用端点：POST /api/atelier/v1/{namespace}/action/query。
 
 关键点： IRIS 返回的 JSON 格式是 { result: { content: [...] } }。请将结果格式化为 Markdown 表格字符串，以便 AI 阅读。
+
+说明：
+- 本项目不再尝试自动探测/枚举 namespace（不同 IRIS 安装的系统表/权限差异会导致不稳定）。
+- 请用户在配置中显式设置 `IRIS_NAMESPACE`（作为默认 namespace）；工具参数中的 `namespace` 仅用于临时覆盖。
