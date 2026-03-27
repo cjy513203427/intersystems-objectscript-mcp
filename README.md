@@ -38,11 +38,13 @@ Lists accessible `.inc` files in an IRIS namespace.
 
 ## Quick start
 
-### Option A: npm-based setup
+**Default setup:** use the **published npm package**. You do **not** need to clone this repository, run a local checkout, or point your host at `src/index.ts`. The MCP host runs `npx`, which pulls the package from the registry and starts the compiled server.
 
-Use this if you want the smallest amount of local setup and a host config that runs immediately.
+### Option A: npm (recommended)
 
-Recommended host `mcp.json`:
+Use this for normal use. Only Node.js and host `mcp.json` are required.
+
+Host `mcp.json`:
 
 ```json
 {
@@ -63,12 +65,12 @@ Recommended host `mcp.json`:
 
 Notes:
 
-- This is the recommended published-package path
-- If you prefer a global install, run `npm install -g intersystems-objectscript-routine-mcp` and set `command` to `intersystems-objectscript-routine-mcp`
+- Some hosts accept an explicit `"type": "stdio"` on the server entry; add it if yours requires it.
+- If you prefer a global install, run `npm install -g intersystems-objectscript-routine-mcp` and set `"command"` to `intersystems-objectscript-routine-mcp` (and clear `args` as needed for your host).
 
-### Option B: clone-based setup
+### Option B: local clone (optional, for development)
 
-Use this if you want to inspect or modify the source before running it.
+Use this **only** if you are changing the source or you cannot use npm. It requires a git clone, `npm install`, and a path to `src/index.ts` (or local `dist` after `npm run build`).
 
 ```bash
 git clone https://github.com/cjy513203427/intersystems-objectscript-mcp.git
