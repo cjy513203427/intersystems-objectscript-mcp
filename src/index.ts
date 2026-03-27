@@ -168,7 +168,7 @@ async function main(): Promise<void> {
 
   const server = new McpServer({
     name: "intersystems-objectscript-routine-mcp",
-    version: "1.0.0",
+    version: "1.0.1",
   });
 
   server.registerTool(
@@ -297,10 +297,14 @@ async function main(): Promise<void> {
             { timeout: 30_000 },
           );
 
-          // Atelier action/query response: { result: { columns: [...], rows: [[val,...], ...] } }
-          // Some versions may return rows as objects instead of arrays; handle both.
+          // Atelier action/query response varies by IRIS version:
+          // older: { result: { columns: [...], rows: [[val,...], ...] } }
+          // newer: { result: { content: [{ Name: "..." }, ...] } }
+          // Handle both shapes.
           const result = res.data?.result ?? res.data;
-          const rawRows: unknown[] = Array.isArray(result?.rows) ? result.rows : [];
+          const rawRows: unknown[] =
+            Array.isArray(result?.rows) ? result.rows :
+            Array.isArray(result?.content) ? result.content : [];
 
           const names: string[] = rawRows.map((row) => {
             if (Array.isArray(row)) return String(row[0] ?? "");
