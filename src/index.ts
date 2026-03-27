@@ -213,9 +213,9 @@ async function main(): Promise<void> {
               const ax = axios.isAxiosError(err) ? err : null;
               const code = ax?.code ? ` (${ax.code})` : "";
               const hint =
-                `无法连接到 IRIS${code}。请检查 IRIS_URL/端口、网络连通性与 Basic Auth。` +
+                `Cannot connect to IRIS${code}. Check IRIS_URL/port, network reachability, and Basic Auth.` +
                 `\n- IRIS_URL: ${env.IRIS_URL}` +
-                `\n- 尝试访问: ${normalizeBaseUrl(env.IRIS_URL)}/api/atelier/`;
+                `\n- Try: ${normalizeBaseUrl(env.IRIS_URL)}/api/atelier/`;
               return { content: [{ type: "text", text: hint }] };
             }
 
@@ -230,7 +230,7 @@ async function main(): Promise<void> {
               if (status === 401 || status === 403) {
                 const snippet = extractVersionInfo(err.response?.data ?? err.message);
                 return {
-                  content: [{ type: "text", text: `认证/权限失败（HTTP ${status}）。\n${snippet}` }],
+                  content: [{ type: "text", text: `Authentication or authorization failed (HTTP ${status}).\n${snippet}` }],
                 };
               }
 
@@ -242,12 +242,12 @@ async function main(): Promise<void> {
 
               const snippet = extractVersionInfo(err.response?.data ?? err.message);
               return {
-                content: [{ type: "text", text: `获取 routine 失败（HTTP ${status ?? "unknown"}）。\n${snippet}` }],
+                content: [{ type: "text", text: `Failed to fetch routine (HTTP ${status ?? "unknown"}).\n${snippet}` }],
               };
             }
 
             // Non-Axios errors: return a generic failure without retry loops.
-            return { content: [{ type: "text", text: `获取 routine 失败：${String(err)}` }] };
+            return { content: [{ type: "text", text: `Failed to fetch routine: ${String(err)}` }] };
           }
         }
       }
@@ -259,11 +259,119 @@ async function main(): Promise<void> {
           {
             type: "text",
             text:
-              `未找到对应的 routine 文档。\n已尝试以下名称：\n${list}\n\n` +
-              `请确认：\n- 类已编译（会生成 *.1.int）\n- namespace 正确：${resolvedNamespace}`,
+              `No compiled routine was found. Please verify the class has been compiled.\n\n` +
+              `Tried the following names:\n${list}\n\n` +
+              `Also verify namespace: ${resolvedNamespace}`,
           },
         ],
       };
+    },
+  );
+
+  server.registerTool(
+    "list_iris_includes",
+    {
+      description:
+        "Read-only: list all accessible .inc (include) files in an IRIS namespace via SQL. " +
+        "Use this to discover which include files are available before fetching one with get_iris_routine. " +
+        "Does not modify any code.",
+      inputSchema: z.object({
+        namespace: z.string().min(1).optional(),
+      }),
+    },
+    async ({ namespace }) => {
+      const resolvedNamespace = namespace ?? env.IRIS_NAMESPACE;
+      const client = createIrisClient(env);
+      const url = `/api/atelier/v1/${encodeURIComponent(resolvedNamespace)}/action/query`;
+
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const res = await client.post(
+            url,
+            {
+              query:
+                "SELECT Name FROM %Library.RoutineMgr_StudioOpenDialog('*.inc',1,1,1,1,0,0)",
+              parameters: [],
+            },
+            { timeout: 30_000 },
+          );
+
+          // Atelier action/query response: { result: { columns: [...], rows: [[val,...], ...] } }
+          // Some versions may return rows as objects instead of arrays; handle both.
+          const result = res.data?.result ?? res.data;
+          const rawRows: unknown[] = Array.isArray(result?.rows) ? result.rows : [];
+
+          const names: string[] = rawRows.map((row) => {
+            if (Array.isArray(row)) return String(row[0] ?? "");
+            if (row !== null && typeof row === "object") {
+              const obj = row as Record<string, unknown>;
+              return String(obj["Name"] ?? obj["name"] ?? "");
+            }
+            return String(row ?? "");
+          }).filter(Boolean);
+
+          if (names.length === 0) {
+            return {
+              content: [
+                {
+                  type: "text",
+                  text:
+                    `No .inc files found in namespace: ${resolvedNamespace}\n` +
+                    `The query succeeded but returned 0 rows. ` +
+                    `Try a different namespace or verify SQL access to %Library.RoutineMgr_StudioOpenDialog.`,
+                },
+              ],
+            };
+          }
+
+          return {
+            content: [
+              {
+                type: "text",
+                text:
+                  `[IRIS include files] namespace=${resolvedNamespace} count=${names.length}\n` +
+                  names.join("\n"),
+              },
+            ],
+          };
+        } catch (err: unknown) {
+          if (isLikelyNetworkMisconfig(err)) {
+            const ax = axios.isAxiosError(err) ? err : null;
+            const code = ax?.code ? ` (${ax.code})` : "";
+            const hint =
+              `Cannot connect to IRIS${code}. Check IRIS_URL/port, network reachability, and Basic Auth.` +
+              `\n- IRIS_URL: ${env.IRIS_URL}` +
+              `\n- Try: ${normalizeBaseUrl(env.IRIS_URL)}/api/atelier/`;
+            return { content: [{ type: "text", text: hint }] };
+          }
+
+          if (axios.isAxiosError(err)) {
+            const status = err.response?.status;
+
+            if (status === 401 || status === 403) {
+              const snippet = extractVersionInfo(err.response?.data ?? err.message);
+              return {
+                content: [{ type: "text", text: `Authentication or authorization failed (HTTP ${status}).\n${snippet}` }],
+              };
+            }
+
+            if (attempt === 0 && shouldRetryOnce(err)) {
+              await sleep(250);
+              continue;
+            }
+
+            const snippet = extractVersionInfo(err.response?.data ?? err.message);
+            return {
+              content: [{ type: "text", text: `Failed to list include files (HTTP ${status ?? "unknown"}).\n${snippet}` }],
+            };
+          }
+
+          return { content: [{ type: "text", text: `Failed to list include files: ${String(err)}` }] };
+        }
+      }
+
+      // Should be unreachable, but satisfy the compiler.
+      return { content: [{ type: "text", text: "Failed to list include files: unexpected state." }] };
     },
   );
 
