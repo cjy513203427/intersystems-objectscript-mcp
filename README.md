@@ -76,17 +76,16 @@ cd intersystems-objectscript-mcp
 npm install
 ```
 
-Host `mcp.json` for the cloned repository:
+Host `mcp.json` for the cloned repository (pattern verified with Cursor: `npx` + `tsx`, `cwd` set to the repo root). Replace `<path-to-repo>` with your clone path (use forward slashes on Windows, e.g. `C:/Projekte/...`).
 
 ```json
 {
   "mcpServers": {
-    "intersystems-objectscript-routine-mcp": {
-      "command": "node",
-      "args": [
-        "<path-to-repo>/node_modules/tsx/dist/cli.mjs",
-        "<path-to-repo>/src/index.ts"
-      ],
+    "iris-objectscript-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["tsx", "<path-to-repo>/src/index.ts"],
+      "cwd": "<path-to-repo>",
       "env": {
         "IRIS_URL": "http://localhost:52773",
         "IRIS_NAMESPACE": "USER",
@@ -97,6 +96,12 @@ Host `mcp.json` for the cloned repository:
   }
 }
 ```
+
+Notes:
+
+- The server key (`iris-objectscript-mcp` here) is only a label in the host; it can differ from the npm package name.
+- Run `npm install` in the repo first so dependencies and `tsx` resolve reliably.
+- Alternative: `node` + `node_modules/tsx/dist/cli.mjs` works the same; `npx tsx` is often shorter to configure.
 
 ## Environment variables
 
