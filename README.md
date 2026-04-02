@@ -108,22 +108,21 @@ Notes:
 ## Example
 Try this MCP server with the ObjectScript project [apiPub](https://github.com/devecchijr/apiPub).
 
-Fetch the routine for `api.cls`:
+Fetch the routine for `api.cls`:\
 ![alt text](images/api.cls.png)
 
-Press `ctrl+shift+v` to view the compiled routine. In compiler terminology these are called readable intermediate code. LLMs lack this context — which is why even frontier models invent macros, because they don't know what the expanded code looks like.
+Press `ctrl+shift+v` to view the compiled routine. In compiler terminology these are called readable intermediate code. LLMs lack this context — which is why even frontier models invent macros, because they don't know what the expanded code looks like.\
 ![alt text](images/api.1.int.png)
 
 They also don't know which `.inc` files are imported, or what the `$$$xxx` macros inside them expand to.
 
-For example, a `.inc` file may explicitly include system macros:
+For example, a `.inc` file may explicitly include system macros:\
 ![alt text](images/system_macro.png)
 
-If you are connected to an IRIS instance you can navigate into those macro files directly:
+If you are connected to an IRIS instance you can navigate into those macro files directly:\
 ![alt text](images/%25occKeyword.inc.png)
 
-Without explicitly including these system macros there is no way to reach those files — and the LLM has no visibility into them at all.
-
+Without explicitly including these system macros there is no way to reach those files — and the LLM has no visibility into them at all.\
 ![alt text](images/vscode_structure.png)
 
 Under the `.vscode` folder, add the following to `mcp.json`:
@@ -145,19 +144,19 @@ Under the `.vscode` folder, add the following to `mcp.json`:
 }
 ```
 
-Open VS Code Copilot in **agent** mode (the MCP tool is not invoked in other modes). Press `ctrl+shift+p` and choose `MCP: List Servers`:
+Open VS Code Copilot in **agent** mode (the MCP tool is not invoked in other modes). Press `ctrl+shift+p` and choose `MCP: List Servers`:\
 ![alt text](images/mcp-list-server.png)
 
-Start the MCP server:
+Start the MCP server:\
 ![alt text](images/start-chosen-mcp.png)
 
-Ask about a routine:
+Ask about a routine:\
 ![alt text](images/get-routine-of-a-single-cls.png)
 
-Ask to list all available `.inc` files:
+Ask to list all available `.inc` files:\
 ![alt text](images/show-all-inc-files.png)
 
-Fetch the contents of a specific `.inc` file:
+Fetch the contents of a specific `.inc` file:\
 ![alt text](images/show-specified-image.png)
 
 The same MCP configuration works in other VS Code forks such as Cursor, Antigravity and Windsurf, as well as CLI tools like Claude Code and Codex.
