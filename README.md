@@ -1,6 +1,6 @@
 # intersystems-objectscript-routine-mcp
 
-Read-only MCP server for InterSystems IRIS via the Atelier API. It is designed for hosts such as Cursor or Claude Desktop and helps an LLM inspect compiled ObjectScript routines without modifying code.
+Read-only MCP server for InterSystems IRIS via the Atelier API. It is designed for hosts such as VSCode Copilot, Cursor or Claude Desktop and helps an LLM inspect compiled ObjectScript routines without modifying code.
 
 GitHub is for understanding the project and reviewing the source. npm is for the shortest path to a working MCP server. The `repository` field connects both.
 
@@ -105,6 +105,49 @@ Notes:
 - Run `npm install` in the repo first so dependencies and `tsx` resolve reliably.
 - Alternative: `node` + `node_modules/tsx/dist/cli.mjs` works the same; `npx tsx` is often shorter to configure.
 
+## Example
+Try this mcp on objectscript project [apiPub](https://github.com/devecchijr/apiPub)
+
+![alt text](images/vscode_structure.png)
+
+Under `.vscode` Folder add these to `mcp.json` file.
+```
+{
+	"servers": {
+	  "intersystemsObjectscriptRoutine": {
+		"type": "stdio",
+		"command": "npx",
+		"args": ["-y", "intersystems-objectscript-routine-mcp"],
+		"env": {
+		  "IRIS_URL": "http://localhost:52773",
+		  "IRIS_NAMESPACE": "IRISAPP",
+		  "IRIS_USERNAME": "_SYSTEM",
+		  "IRIS_PASSWORD": "SYS"
+		}
+	  }
+	}
+  }
+```
+
+Get the routine of api.cls:
+![alt text](images/api.cls.png)
+
+With `ctrl+shift+v` we can see the routine code of it. In compiler princile area they are called readable intermediate code. AI lacks these codes as context, that's why they (even frontier model) invent macro, they dont know how the code expansion look like. 
+![alt text](images/api.1.int.png)
+
+And they dont know how many .inc can be imported. What are `$$$xxx` magic in .inc defined.
+
+For example:
+In a .inc file you explictly include these system macros.
+![alt text](images/system_macro.png)
+
+You can click into a macro if you are sucessfully connected with iris docker container.
+![alt text](images/%25occKeyword.inc.png)
+But AI dont know these information, that's why they invent constants.
+
+If you dont explicitly include these system macros, you cannot enter macros file. There is no entrance to these files.
+
+
 ## Environment variables
 
 The host can pass connection settings through `env`. For local development, you can also create a `.env` file based on `.env.example`.
@@ -115,6 +158,8 @@ The host can pass connection settings through `env`. For local development, you 
 | `IRIS_NAMESPACE` | Yes | Default namespace used when a tool call does not pass one |
 | `IRIS_USERNAME` | Yes | Username for HTTP Basic Auth |
 | `IRIS_PASSWORD` | Yes | Password for HTTP Basic Auth |
+
+
 
 ## Troubleshooting
 
