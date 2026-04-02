@@ -106,64 +106,61 @@ Notes:
 - Alternative: `node` + `node_modules/tsx/dist/cli.mjs` works the same; `npx tsx` is often shorter to configure.
 
 ## Example
-Try this mcp on objectscript project [apiPub](https://github.com/devecchijr/apiPub)
+Try this MCP server with the ObjectScript project [apiPub](https://github.com/devecchijr/apiPub).
 
-Get the routine of api.cls:
+Fetch the routine for `api.cls`:
 ![alt text](images/api.cls.png)
 
-With `ctrl+shift+v` we can see the routine code of it. In compiler princile area they are called readable intermediate code. AI lacks these codes as context, that's why they (even frontier model) invent macro, they dont know how the code expansion look like. 
+Press `ctrl+shift+v` to view the compiled routine. In compiler terminology these are called readable intermediate code. LLMs lack this context — which is why even frontier models invent macros, because they don't know what the expanded code looks like.
 ![alt text](images/api.1.int.png)
 
-And they dont know how many .inc can be imported. What are `$$$xxx` magic in .inc defined.
+They also don't know which `.inc` files are imported, or what the `$$$xxx` macros inside them expand to.
 
-For example:
-In a .inc file you explictly include these system macros.
+For example, a `.inc` file may explicitly include system macros:
 ![alt text](images/system_macro.png)
 
-You can click into a macro if you are sucessfully connected with iris docker container.
+If you are connected to an IRIS instance you can navigate into those macro files directly:
 ![alt text](images/%25occKeyword.inc.png)
-But AI dont know these information, that's why they invent constants.
 
-If you dont explicitly include these system macros, you cannot enter macros file. There is no entrance to these files.
+Without explicitly including these system macros there is no way to reach those files — and the LLM has no visibility into them at all.
 
 ![alt text](images/vscode_structure.png)
 
-Under `.vscode` Folder add these to `mcp.json` file.
-```
+Under the `.vscode` folder, add the following to `mcp.json`:
+```json
 {
-	"servers": {
-	  "intersystemsObjectscriptRoutine": {
-		"type": "stdio",
-		"command": "npx",
-		"args": ["-y", "intersystems-objectscript-routine-mcp"],
-		"env": {
-		  "IRIS_URL": "http://localhost:52773",
-		  "IRIS_NAMESPACE": "IRISAPP",
-		  "IRIS_USERNAME": "_SYSTEM",
-		  "IRIS_PASSWORD": "SYS"
-		}
-	  }
-	}
+  "servers": {
+    "intersystemsObjectscriptRoutine": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "intersystems-objectscript-routine-mcp"],
+      "env": {
+        "IRIS_URL": "http://localhost:52773",
+        "IRIS_NAMESPACE": "IRISAPP",
+        "IRIS_USERNAME": "_SYSTEM",
+        "IRIS_PASSWORD": "SYS"
+      }
+    }
   }
+}
 ```
 
-
-Now we test with mcp in vscode. You should use `agent` mode, otherwise the mcp tool probably cannot be invoked.
-`ctrl+shift+p` choose `MCP:List Server`
+Open VS Code Copilot in **agent** mode (the MCP tool is not invoked in other modes). Press `ctrl+shift+p` and choose `MCP: List Servers`:
 ![alt text](images/mcp-list-server.png)
-start our mcp tools
+
+Start the MCP server:
 ![alt text](images/start-chosen-mcp.png)
 
-Then ask a question about routine code.
+Ask about a routine:
 ![alt text](images/get-routine-of-a-single-cls.png)
 
-Ask question of "show me all the hidden .inc possiblities".
+Ask to list all available `.inc` files:
 ![alt text](images/show-all-inc-files.png)
 
-Get a code of a specified .inc file.
+Fetch the contents of a specific `.inc` file:
 ![alt text](images/show-specified-image.png)
 
-That's all, if you use forked version of vscode, like Cursor, Antigravity, the mcp setting is similar. Also cli ide like claudecode, codex.. I tested on Cursor and it works.
+The same MCP configuration works in other VS Code forks such as Cursor, Antigravity and Windsurf, as well as CLI tools like Claude Code and Codex.
 
 ## Environment variables
 
@@ -177,30 +174,6 @@ The host can pass connection settings through `env`. For local development, you 
 | `IRIS_PASSWORD` | Yes | Password for HTTP Basic Auth |
 
 
-
-## Troubleshooting
-
-### Connection refused or timeout
-
-- Verify `IRIS_URL`
-- Open `<IRIS_URL>/api/atelier/` in a browser or with `curl`
-- Confirm the IRIS web server and port are reachable from the machine running the MCP host
-
-### `401` or `403`
-
-- Recheck `IRIS_USERNAME` and `IRIS_PASSWORD`
-- Confirm the account can access the Atelier API for the target namespace
-
-### Routine not found
-
-- Confirm the class or routine has been compiled
-- Try the correct namespace explicitly
-- For class names, remember that the server looks for compiled routine names such as `.1.int`
-
-### Include listing returns zero results
-
-- Confirm the namespace actually contains `.inc` files
-- Confirm the account can execute `%Library.RoutineMgr_StudioOpenDialog`
 
 ## Security notes
 
