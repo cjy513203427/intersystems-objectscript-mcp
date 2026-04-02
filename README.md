@@ -159,7 +159,7 @@ Ask to list all available `.inc` files:\
 Fetch the contents of a specific `.inc` file:\
 ![alt text](images/show-specified-image.png)
 
-The same MCP configuration works in other VS Code forks such as Cursor, Antigravity and Windsurf, as well as CLI tools like Claude Code and Codex.
+The similar MCP configuration works in other VS Code forks such as Cursor, Antigravity and Windsurf, as well as CLI tools like Claude Code and Codex.
 
 ## Environment variables
 
