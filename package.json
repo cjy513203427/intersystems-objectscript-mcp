@@ -5,7 +5,7 @@
   "description": "MCP server for InterSystems IRIS (Atelier API) focused on reading compiled routines (.int) for LLMs.",
   "main": "./dist/index.js",
   "bin": {
-    "intersystems-objectscript-routine-mcp": "./dist/index.js"
+    "intersystems-objectscript-routine-mcp": "dist/index.js"
   },
   "engines": {
     "node": ">=20.0.0"
