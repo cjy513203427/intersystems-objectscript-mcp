@@ -175,7 +175,9 @@ async function main(): Promise<void> {
     "get_iris_routine",
     {
       description:
-        "Read-only: fetch compiled routine (.int) content from IRIS. Auto-completes bare class names (e.g. 'Pkg.Class') by trying '.1.int' and '.int'. Does not modify any code.",
+        "Read-only: fetch routine or include file content from IRIS. Supports .int, .mac, and .inc files. " +
+        "Auto-completes bare class names (e.g. 'Pkg.Class') by trying '.1.int' and '.int'. " +
+        "To fetch an include file, pass the full name with extension (e.g. '%occCPTJSgen.inc'). Does not modify any code.",
       inputSchema: z.object({
         name: z.string().min(1),
         namespace: z.string().min(1).optional(),
