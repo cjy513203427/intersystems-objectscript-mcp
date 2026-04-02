@@ -152,7 +152,6 @@ Start the MCP server:
 ![alt text](images/start-chosen-mcp.png)
 
 Ask about a routine:
-
 ![alt text](images/get-routine-of-a-single-cls.png)
 
 Ask to list all available `.inc` files:
