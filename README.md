@@ -1,6 +1,12 @@
 # intersystems-objectscript-routine-mcp
 
+[![npm version](https://img.shields.io/npm/v/intersystems-objectscript-routine-mcp)](https://www.npmjs.com/package/intersystems-objectscript-routine-mcp)
+[![npm downloads](https://img.shields.io/npm/dm/intersystems-objectscript-routine-mcp)](https://www.npmjs.com/package/intersystems-objectscript-routine-mcp)
+[![GitHub](https://img.shields.io/badge/GitHub-intersystems--objectscript--mcp-blue)](https://github.com/cjy513203427/intersystems-objectscript-mcp)
+
 Read-only MCP server for InterSystems IRIS via the Atelier API. It is designed for hosts such as VSCode Copilot, Cursor or Claude Desktop and helps an LLM inspect compiled ObjectScript routines without modifying code.
+
+[npm package](https://www.npmjs.com/package/intersystems-objectscript-routine-mcp) · [GitHub repository](https://github.com/cjy513203427/intersystems-objectscript-mcp)
 
 GitHub is for understanding the project and reviewing the source. npm is for the shortest path to a working MCP server. The `repository` field connects both.
 
