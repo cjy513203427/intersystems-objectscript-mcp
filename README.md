@@ -108,6 +108,24 @@ Notes:
 ## Example
 Try this mcp on objectscript project [apiPub](https://github.com/devecchijr/apiPub)
 
+Get the routine of api.cls:
+![alt text](images/api.cls.png)
+
+With `ctrl+shift+v` we can see the routine code of it. In compiler princile area they are called readable intermediate code. AI lacks these codes as context, that's why they (even frontier model) invent macro, they dont know how the code expansion look like. 
+![alt text](images/api.1.int.png)
+
+And they dont know how many .inc can be imported. What are `$$$xxx` magic in .inc defined.
+
+For example:
+In a .inc file you explictly include these system macros.
+![alt text](images/system_macro.png)
+
+You can click into a macro if you are sucessfully connected with iris docker container.
+![alt text](images/%25occKeyword.inc.png)
+But AI dont know these information, that's why they invent constants.
+
+If you dont explicitly include these system macros, you cannot enter macros file. There is no entrance to these files.
+
 ![alt text](images/vscode_structure.png)
 
 Under `.vscode` Folder add these to `mcp.json` file.
@@ -129,24 +147,23 @@ Under `.vscode` Folder add these to `mcp.json` file.
   }
 ```
 
-Get the routine of api.cls:
-![alt text](images/api.cls.png)
 
-With `ctrl+shift+v` we can see the routine code of it. In compiler princile area they are called readable intermediate code. AI lacks these codes as context, that's why they (even frontier model) invent macro, they dont know how the code expansion look like. 
-![alt text](images/api.1.int.png)
+Now we test with mcp in vscode. You should use `agent` mode, otherwise the mcp tool probably cannot be invoked.
+`ctrl+shift+p` choose `MCP:List Server`
+![alt text](images/mcp-list-server.png)
+start our mcp tools
+![alt text](images/start-chosen-mcp.png)
 
-And they dont know how many .inc can be imported. What are `$$$xxx` magic in .inc defined.
+Then ask a question about routine code.
+![alt text](images/get-routine-of-a-single-cls.png)
 
-For example:
-In a .inc file you explictly include these system macros.
-![alt text](images/system_macro.png)
+Ask question of "show me all the hidden .inc possiblities".
+![alt text](images/show-all-inc-files.png)
 
-You can click into a macro if you are sucessfully connected with iris docker container.
-![alt text](images/%25occKeyword.inc.png)
-But AI dont know these information, that's why they invent constants.
+Get a code of a specified .inc file.
+![alt text](images/show-specified-image.png)
 
-If you dont explicitly include these system macros, you cannot enter macros file. There is no entrance to these files.
-
+That's all, if you use forked version of vscode, like Cursor, Antigravity, the mcp setting is similar. Also cli ide like claudecode, codex.. I tested on Cursor and it works.
 
 ## Environment variables
 
