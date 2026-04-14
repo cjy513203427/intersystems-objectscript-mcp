@@ -14,6 +14,10 @@ const EnvSchema = z.object({
   IRIS_NAMESPACE: z.string().min(1, "IRIS_NAMESPACE is required"),
   IRIS_USERNAME: z.string().min(1, "IRIS_USERNAME is required").default("_SYSTEM"),
   IRIS_PASSWORD: z.string().min(1, "IRIS_PASSWORD is required").default("SYS"),
+  // "auto" = register get_iris_class only for non-localhost URLs (default).
+  // "on"   = always register (e.g. localhost Docker where files aren't available locally).
+  // "off"  = never register.
+  IRIS_CLASS_TOOL: z.enum(["auto", "on", "off"]).default("auto"),
 });
 
 type Env = z.infer<typeof EnvSchema>;
@@ -74,6 +78,27 @@ function extractVersionInfo(data: unknown): string {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isLocalhostUrl(url: string): boolean {
+  try {
+    const { hostname } = new URL(url);
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
+function shouldRegisterClassTool(env: Env): boolean {
+  if (env.IRIS_CLASS_TOOL === "on") return true;
+  if (env.IRIS_CLASS_TOOL === "off") return false;
+  // "auto": only register for remote instances; local files are already readable by the LLM.
+  return !isLocalhostUrl(env.IRIS_URL);
+}
+
+function normalizeClassName(input: string): string {
+  const name = input.trim();
+  return /\.cls$/i.test(name) ? name : `${name}.cls`;
 }
 
 function buildRoutineDocCandidates(inputName: string): string[] {
@@ -381,6 +406,94 @@ async function main(): Promise<void> {
       return { content: [{ type: "text", text: "Failed to list include files: unexpected state." }] };
     },
   );
+
+  if (shouldRegisterClassTool(env)) {
+    console.error(`get_iris_class tool registered (IRIS_CLASS_TOOL=${env.IRIS_CLASS_TOOL}, IRIS_URL=${env.IRIS_URL}).`);
+  } else {
+    console.error(`get_iris_class tool skipped (IRIS_CLASS_TOOL=${env.IRIS_CLASS_TOOL}, IRIS_URL is localhost — class files are locally accessible).`);
+  }
+
+  if (shouldRegisterClassTool(env)) server.registerTool(
+    "get_iris_class",
+    {
+      description:
+        "Read-only: fetch ObjectScript class source (.cls) from IRIS via the Atelier API. " +
+        "Accepts a class name with or without the .cls extension (e.g. 'Ens.Director' or 'Ens.Director.cls'). " +
+        "Works for both user-defined and system/Ensemble classes as long as the credentials have read access. " +
+        "Does not modify any code.",
+      inputSchema: z.object({
+        name: z.string().min(1),
+        namespace: z.string().min(1).optional(),
+      }),
+    },
+    async ({ name, namespace }) => {
+      const resolvedNamespace = namespace ?? env.IRIS_NAMESPACE;
+      const client = createIrisClient(env);
+      const docName = normalizeClassName(name);
+      const url = `/api/atelier/v1/${encodeURIComponent(resolvedNamespace)}/doc/${encodeURIComponent(docName)}`;
+
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const res = await client.get(url, { timeout: 15_000 });
+          const result = res.data?.result ?? res.data;
+          const lines = Array.isArray(result?.content) ? result.content : null;
+          const header = `[IRIS class] name=${String(result?.name ?? docName)} namespace=${resolvedNamespace}`;
+          const content = lines
+            ? `${header}\n${lines.join("\n")}`
+            : `${header}\n${extractVersionInfo(res.data)}`;
+          return { content: [{ type: "text", text: content }] };
+        } catch (err: unknown) {
+          if (isLikelyNetworkMisconfig(err)) {
+            const ax = axios.isAxiosError(err) ? err : null;
+            const code = ax?.code ? ` (${ax.code})` : "";
+            const hint =
+              `Cannot connect to IRIS${code}. Check IRIS_URL/port, network reachability, and Basic Auth.` +
+              `\n- IRIS_URL: ${env.IRIS_URL}` +
+              `\n- Try: ${normalizeBaseUrl(env.IRIS_URL)}/api/atelier/`;
+            return { content: [{ type: "text", text: hint }] };
+          }
+
+          if (axios.isAxiosError(err)) {
+            const status = err.response?.status;
+
+            if (status === 401 || status === 403) {
+              const snippet = extractVersionInfo(err.response?.data ?? err.message);
+              return {
+                content: [{ type: "text", text: `Authentication or authorization failed (HTTP ${status}).\n${snippet}` }],
+              };
+            }
+
+            if (status === 404 || status === 400) {
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text:
+                      `Class not found: ${docName}\n` +
+                      `Verify the class name and that it exists in namespace: ${resolvedNamespace}`,
+                  },
+                ],
+              };
+            }
+
+            if (attempt === 0 && shouldRetryOnce(err)) {
+              await sleep(250);
+              continue;
+            }
+
+            const snippet = extractVersionInfo(err.response?.data ?? err.message);
+            return {
+              content: [{ type: "text", text: `Failed to fetch class (HTTP ${status ?? "unknown"}).\n${snippet}` }],
+            };
+          }
+
+          return { content: [{ type: "text", text: `Failed to fetch class: ${String(err)}` }] };
+        }
+      }
+
+      return { content: [{ type: "text", text: "Failed to fetch class: unexpected state." }] };
+    },
+  ); // end get_iris_class
 
   const transport = new StdioServerTransport();
   await server.connect(transport);

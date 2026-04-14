@@ -4,7 +4,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/intersystems-objectscript-routine-mcp)](https://www.npmjs.com/package/intersystems-objectscript-routine-mcp)
 [![GitHub](https://img.shields.io/badge/GitHub-intersystems--objectscript--mcp-blue)](https://github.com/cjy513203427/intersystems-objectscript-mcp)
 
-Read-only MCP server for InterSystems IRIS via the Atelier API. It is designed for hosts such as VSCode Copilot, Cursor or Claude Desktop and helps an LLM inspect compiled ObjectScript routines without modifying code.
+Read-only MCP server for InterSystems IRIS via the Atelier API. It is designed for hosts such as VSCode Copilot, Cursor or Claude Desktop and helps an LLM inspect compiled ObjectScript routines and class source without modifying code.
 
 [npm package](https://www.npmjs.com/package/intersystems-objectscript-routine-mcp) · [GitHub repository](https://github.com/cjy513203427/intersystems-objectscript-mcp)
 
@@ -14,6 +14,7 @@ GitHub is for understanding the project and reviewing the source. npm is for the
 
 - Fetch compiled routines such as `.int`, `.mac`, and `.inc`
 - Auto-resolve bare class names such as `Package.Class` to compiled routine candidates like `Package.Class.1.int`
+- Fetch ObjectScript class source (`.cls`) from remote IRIS instances, including system and Ensemble classes
 - List accessible include files in a namespace
 - Fail fast on common connection and authentication problems
 
@@ -34,6 +35,15 @@ Lists accessible `.inc` files in an IRIS namespace.
 - Input: optional `namespace`
 - Read-only
 - Uses the Atelier `action/query` endpoint and requires SQL access to `%Library.RoutineMgr_StudioOpenDialog`
+
+### `get_iris_class`
+
+Fetches ObjectScript class source (`.cls`) from IRIS.
+
+- Input: `name` (e.g. `Ens.Director` or `Ens.Director.cls`), optional `namespace`
+- Read-only
+- Works for user-defined and system/Ensemble classes as long as the credentials have read access
+- Only registered when `IRIS_URL` points to a remote host (non-localhost). For local instances the LLM can read class files directly, so the tool is skipped to avoid redundant context. Override with `IRIS_CLASS_TOOL=on` if needed (e.g. localhost Docker where files are not locally accessible).
 
 ## Requirements
 
@@ -171,12 +181,13 @@ The similar MCP configuration works in other VS Code forks such as Cursor, Antig
 
 The host can pass connection settings through `env`. For local development, you can also create a `.env` file based on `.env.example`.
 
-| Variable | Required | Description |
-| --- | --- | --- |
-| `IRIS_URL` | Yes | Base URL of your IRIS instance, for example `http://localhost:52773` |
-| `IRIS_NAMESPACE` | Yes | Default namespace used when a tool call does not pass one |
-| `IRIS_USERNAME` | Yes | Username for HTTP Basic Auth |
-| `IRIS_PASSWORD` | Yes | Password for HTTP Basic Auth |
+| Variable | Required | Default | Description |
+| --- | --- | --- | --- |
+| `IRIS_URL` | Yes | `http://localhost:63668` | Base URL of your IRIS instance, for example `http://localhost:52773` or a remote URL |
+| `IRIS_NAMESPACE` | Yes | — | Default namespace used when a tool call does not pass one |
+| `IRIS_USERNAME` | Yes | `_SYSTEM` | Username for HTTP Basic Auth |
+| `IRIS_PASSWORD` | Yes | `SYS` | Password for HTTP Basic Auth |
+| `IRIS_CLASS_TOOL` | No | `auto` | Controls registration of `get_iris_class`. `auto` = register only for non-localhost URLs; `on` = always register; `off` = never register |
 
 
 
