@@ -199,6 +199,8 @@ async function main(): Promise<void> {
   server.registerTool(
     "get_iris_routine",
     {
+      title: "Get IRIS Routine",
+      annotations: { readOnlyHint: true },
       description:
         "Read-only: fetch routine or include file content from IRIS. Supports .int, .mac, and .inc files. " +
         "Auto-completes bare class names (e.g. 'Pkg.Class') by trying '.1.int' and '.int'. " +
@@ -299,6 +301,8 @@ async function main(): Promise<void> {
   server.registerTool(
     "list_iris_includes",
     {
+      title: "List IRIS Include Files",
+      annotations: { readOnlyHint: true },
       description:
         "Read-only: list all accessible .inc (include) files in an IRIS namespace via SQL. " +
         "Use this to discover which include files are available before fetching one with get_iris_routine. " +
@@ -416,6 +420,8 @@ async function main(): Promise<void> {
   if (shouldRegisterClassTool(env)) server.registerTool(
     "get_iris_class",
     {
+      title: "Get IRIS Class",
+      annotations: { readOnlyHint: true },
       description:
         "Read-only: fetch ObjectScript class source (.cls) from IRIS via the Atelier API. " +
         "Accepts a class name with or without the .cls extension (e.g. 'Ens.Director' or 'Ens.Director.cls'). " +
